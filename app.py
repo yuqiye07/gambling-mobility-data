@@ -15,7 +15,7 @@ df_visits_cnty_geo["placekey"] = df_visits_cnty_geo["placekey"].astype(str)
 
 # ---------- PRE-GROUP VISITS BY PLACEKEY (performance) ----------
 df_visits_small = df_visits_cnty_geo[[
-    "placekey", "county", "county_NAME", "lat", "lon", "visits"
+    "placekey", "county", "NAME", "lat", "lon", "visits"
 ]].copy()
 
 df_visits_small["placekey"] = df_visits_small["placekey"].astype(str)
@@ -136,7 +136,7 @@ def update_map(clickData):
     ),
     name="Visitor counties",
     hovertext=(
-        "County: " + tmp["county_NAME"].astype(str)
+        "County: " + tmp["NAME"].astype(str)
         + "<br>FIPS: " + tmp["county"].astype(str)
         + "<br>Visits: " + tmp["visits"].astype(int).astype(str)
     ),

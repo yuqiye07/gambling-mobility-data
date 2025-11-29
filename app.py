@@ -84,22 +84,35 @@ def update_map(clickData):
         return fig, "Click a casino to see visitor origin counties."
 
     point = clickData["points"][0]
+    cd = point.get("customdata")
 
-    # customdata = [placekey, raw_visit_counts]
-    placekey_clicked = str(point["customdata"][0])
+    # customdata = [placekey, raw_visit_counts] or scalar
+    if isinstance(cd, (list, tuple)) and len(cd) > 0:
+        placekey_clicked = str(cd[0])
+        raw_visits = cd[1] if len(cd) > 1 else None
+    else:
+        placekey_clicked = str(cd)
+        raw_visits = None
 
-    # ----- 2a. dim other POIs -----
+    # ----- dim other POIs -----
     mask = df_poi_raw_jan["placekey"].astype(str) == placekey_clicked
     opacities = [1.0 if m else 0.3 for m in mask]
-
-    # POI trace is the first trace in the figure
     fig.data[0].marker.opacity = opacities
 
-    # ----- 2b. county markers for this POI -----
-    tmp = df_visits_cnty_geo[df_visits_cnty_geo["placekey"].astype(str) == placekey_clicked]
+    # ----- county markers for this POI -----
+    tmp = df_visits_cnty_geo[
+        df_visits_cnty_geo["placekey"].astype(str) == placekey_clicked
+    ]
+
+    # base info text with debug info
+    base_info = (
+        f"Clicked placekey: {placekey_clicked} "
+        f"(raw_visit_counts={raw_visits}). "
+        f"Matched county rows: {len(tmp)}. "
+    )
 
     if tmp.empty:
-        info_text = f"No county-level visitor data found for placekey {placekey_clicked}."
+        info_text = base_info + "No county-level visitor data found for this POI."
         return fig, info_text
 
     visits = tmp["visits"].astype(float)
@@ -126,12 +139,13 @@ def update_map(clickData):
     )
 
     info_text = (
-        f"Selected casino placekey: {placekey_clicked}. "
-        f"Distinct origin counties: {tmp['county'].nunique()}, "
-        f"total visits in sample: {int(tmp['visits'].sum())}."
+        base_info
+        + f"Distinct origin counties: {tmp['county'].nunique()}, "
+        + f"total visits in sample: {int(tmp['visits'].sum())}."
     )
 
     return fig, info_text
+
 
 
 

@@ -18,22 +18,30 @@ base_fig = px.scatter_mapbox(
     df_poi_raw_jan,
     lat="latitude",
     lon="longitude",
-    hover_name="location_name",
-    hover_data={"raw_visit_counts": True, "placekey": True},
+    hover_name="location_name",  # this becomes %{hovertext}
+    hover_data={},               # we'll control hover ourselves
     zoom=3,
 )
 
-base_fig.update_layout(
-    mapbox_style="open-street-map",
-    margin={"r": 0, "t": 40, "l": 0, "b": 0},
+# customdata: [placekey, raw_visit_counts] for each point
+poi_customdata = np.stack(
+    [
+        df_poi_raw_jan["placekey"].astype(str),
+        df_poi_raw_jan["raw_visit_counts"].astype(int),
+    ],
+    axis=-1,
 )
 
-# encode placekey into customdata so we can retrieve it from clickData
 base_fig.update_traces(
-    marker=dict(size=6),
-    customdata=df_poi_raw_jan["placekey"],
-    name="Casinos"
+    marker=dict(size=6, opacity=1.0),
+    customdata=poi_customdata,
+    name="Casinos",
+    hovertemplate=(
+        "<b>%{hovertext}</b><br>"       # location_name
+        "Visits: %{customdata[1]}<extra></extra>"
+    ),
 )
+
 
 # ---------- DASH APP ----------
 app = Dash(__name__)
@@ -63,29 +71,35 @@ app.layout = html.Div(
     Input("map", "clickData"),
 )
 def update_map(clickData):
-    # Always start from base figure so we don't accumulate traces
+    # start from base fig every time (this resets previous click state)
     fig = go.Figure(base_fig)
 
+    # no click yet → just show all casinos fully visible
     if clickData is None:
         return fig, "Click a casino to see visitor origin counties."
 
-    # Extract placekey from clicked point
     point = clickData["points"][0]
-    placekey_clicked = point.get("customdata")
 
-    # Filter visits for this POI
-    tmp = df_visits_cnty_geo[df_visits_cnty_geo["placekey"] == placekey_clicked]
+    # customdata = [placekey, raw_visit_counts]
+    placekey_clicked = str(point["customdata"][0])
+
+    # ----- 2a. dim other POIs -----
+    mask = df_poi["placekey"].astype(str) == placekey_clicked
+    opacities = [1.0 if m else 0.3 for m in mask]
+
+    # POI trace is the first trace in the figure
+    fig.data[0].marker.opacity = opacities
+
+    # ----- 2b. county markers for this POI -----
+    tmp = df_visits_cnty_geo[df_visits_cnty_geo["placekey"].astype(str) == placekey_clicked]
 
     if tmp.empty:
-        return (
-            fig,
-            f"No county-level visitor data found for placekey {placekey_clicked}."
-        )
+        info_text = f"No county-level visitor data found for placekey {placekey_clicked}."
+        return fig, info_text
 
-    # Scale marker size by visits
     visits = tmp["visits"].astype(float)
     if visits.max() > 0:
-        sizes = 6 + 18 * (visits / visits.max())  # between ~6 and 24
+        sizes = 6 + 18 * (visits / visits.max())
     else:
         sizes = 8
 
@@ -99,7 +113,7 @@ def update_map(clickData):
         ),
         name="Visitor counties",
         hovertext=(
-            "County: " + tmp["NAME"].astype(str)
+            "County: " + tmp["county_NAME"].astype(str)
             + "<br>FIPS: " + tmp["county"].astype(str)
             + "<br>Visits: " + tmp["visits"].astype(str)
         ),
@@ -113,6 +127,7 @@ def update_map(clickData):
     )
 
     return fig, info_text
+
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ from dash import Dash, dcc, html, Input, Output
 
 # ---------- LOAD DATA ----------
 df_poi_raw_jan = pd.read_csv("df_poi_raw_jan.csv")
-df_visits_cnty_geo = pd.read_csv("df_visits_cnty_geo.csv")
+df_visits_cnty_geo = pd.read_csv("df_visits_cnty_geo.csv.gz", compression="gzip")
 
 # Make sure placekey is string and consistent
 df_poi_raw_jan["placekey"] = df_poi_raw_jan["placekey"].astype(str)

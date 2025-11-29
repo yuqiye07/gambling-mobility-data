@@ -23,6 +23,10 @@ base_fig = px.scatter_mapbox(
     hover_data={},               # we'll control hover ourselves
     zoom=3,
 )
+base_fig.update_layout(
+    mapbox_style="open-street-map",
+    margin={"r": 0, "t": 40, "l": 0, "b": 0},
+)
 
 # customdata: [placekey, raw_visit_counts] for each point
 poi_customdata = np.stack(
@@ -85,7 +89,7 @@ def update_map(clickData):
     placekey_clicked = str(point["customdata"][0])
 
     # ----- 2a. dim other POIs -----
-    mask = df_poi["placekey"].astype(str) == placekey_clicked
+    mask = df_poi_raw_jan["placekey"].astype(str) == placekey_clicked
     opacities = [1.0 if m else 0.3 for m in mask]
 
     # POI trace is the first trace in the figure

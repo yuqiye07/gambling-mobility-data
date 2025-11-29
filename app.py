@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import numpy as np
-# !pip install dash 
 from dash import Dash, dcc, html, Input, Output
 
 # ---------- LOAD DATA ----------
@@ -14,13 +13,26 @@ df_visits_cnty_geo = pd.read_csv("df_visits_cnty_geo.csv.gz", compression="gzip"
 df_poi_raw_jan["placekey"] = df_poi_raw_jan["placekey"].astype(str)
 df_visits_cnty_geo["placekey"] = df_visits_cnty_geo["placekey"].astype(str)
 
+# ---------- PRE-GROUP VISITS BY PLACEKEY (performance) ----------
+df_visits_small = df_visits_cnty_geo[[
+    "placekey", "county", "county_NAME", "lat", "lon", "visits"
+]].copy()
+
+df_visits_small["placekey"] = df_visits_small["placekey"].astype(str)
+df_visits_small["visits"] = df_visits_small["visits"].astype(float)
+
+visits_by_placekey = {
+    pk: grp.reset_index(drop=True)
+    for pk, grp in df_visits_small.groupby("placekey")
+}
+
 # ---------- BASE FIGURE (POI MAP) ----------
 base_fig = px.scatter_mapbox(
     df_poi_raw_jan,
     lat="latitude",
     lon="longitude",
-    hover_name="location_name",  # this becomes %{hovertext}
-    hover_data={},               # we'll control hover ourselves
+    hover_name="location_name",  # becomes %{hovertext}
+    hover_data={},               # we control hover ourselves
     zoom=3,
 )
 base_fig.update_layout(
@@ -28,7 +40,7 @@ base_fig.update_layout(
     margin={"r": 0, "t": 40, "l": 0, "b": 0},
 )
 
-# customdata: [placekey, raw_visit_counts] for each point
+# customdata: [placekey, raw_visit_counts]
 poi_customdata = np.stack(
     [
         df_poi_raw_jan["placekey"].astype(str),
@@ -42,11 +54,10 @@ base_fig.update_traces(
     customdata=poi_customdata,
     name="Casinos",
     hovertemplate=(
-        "<b>%{hovertext}</b><br>"       # location_name
+        "<b>%{hovertext}</b><br>"
         "Visits: %{customdata[1]}<extra></extra>"
     ),
 )
-
 
 # ---------- DASH APP ----------
 app = Dash(__name__)
@@ -79,7 +90,6 @@ def update_map(clickData):
     # start from base fig every time (this resets previous click state)
     fig = go.Figure(base_fig)
 
-    # no click yet → just show all casinos fully visible
     if clickData is None:
         return fig, "Click a casino to see visitor origin counties."
 
@@ -99,54 +109,50 @@ def update_map(clickData):
     opacities = [1.0 if m else 0.3 for m in mask]
     fig.data[0].marker.opacity = opacities
 
-    # ----- county markers for this POI -----
-    tmp = df_visits_cnty_geo[
-        df_visits_cnty_geo["placekey"].astype(str) == placekey_clicked
-    ]
-
-    # base info text with debug info
-    base_info = (
-        f"Clicked placekey: {placekey_clicked} "
-        f"(raw_visit_counts={raw_visits}). "
-        f"Matched county rows: {len(tmp)}. "
-    )
-
-    if tmp.empty:
-        info_text = base_info + "No county-level visitor data found for this POI."
+    # ----- county markers for this POI (fast dict lookup) -----
+    tmp = visits_by_placekey.get(placekey_clicked)
+    if tmp is None or tmp.empty:
+        info_text = (
+            f"Clicked placekey: {placekey_clicked} "
+            f"(raw_visit_counts={raw_visits}). "
+            "No county-level visitor data found for this POI."
+        )
         return fig, info_text
 
-    visits = tmp["visits"].astype(float)
+    visits = tmp["visits"]
     if visits.max() > 0:
         sizes = 6 + 18 * (visits / visits.max())
     else:
         sizes = 8
 
     fig.add_scattermapbox(
-        lat=tmp["lat"],
-        lon=tmp["lon"],
-        mode="markers",
-        marker=dict(
-            size=sizes,
-            opacity=0.7,
-        ),
-        name="Visitor counties",
-        hovertext=(
-            "County: " + tmp["county_NAME"].astype(str)
-            + "<br>FIPS: " + tmp["county"].astype(str)
-            + "<br>Visits: " + tmp["visits"].astype(str)
-        ),
-        hoverinfo="text",
-    )
+    lat=tmp["lat"],
+    lon=tmp["lon"],
+    mode="markers",
+    marker=dict(
+        size=sizes,
+        opacity=0.7,
+        color="red",       # <--- add this
+    ),
+    name="Visitor counties",
+    hovertext=(
+        "County: " + tmp["county_NAME"].astype(str)
+        + "<br>FIPS: " + tmp["county"].astype(str)
+        + "<br>Visits: " + tmp["visits"].astype(int).astype(str)
+    ),
+    hoverinfo="text",
+)
+
 
     info_text = (
-        base_info
-        + f"Distinct origin counties: {tmp['county'].nunique()}, "
-        + f"total visits in sample: {int(tmp['visits'].sum())}."
+        f"Clicked placekey: {placekey_clicked} "
+        f"(raw_visit_counts={raw_visits}). "
+        f"Matched county rows: {len(tmp)}. "
+        f"Distinct origin counties: {tmp['county'].nunique()}, "
+        f"total visits in sample: {int(tmp['visits'].sum())}."
     )
 
     return fig, info_text
-
-
 
 
 if __name__ == "__main__":

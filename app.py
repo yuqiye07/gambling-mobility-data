@@ -55,7 +55,7 @@ base_fig.update_traces(
     name="Casinos",
     hovertemplate=(
         "<b>%{hovertext}</b><br>"
-        "Visits: %{customdata[1]}<extra></extra>"
+        "Visitors: %{customdata[1]}<extra></extra>"
     ),
 )
 
@@ -68,9 +68,11 @@ app.layout = html.Div(
     children=[
         html.H2("Casino Visitor Origins Map (data from January 2019)"),
         html.P(
-            "The blue markers represent gambling locations, inclusing casinos, casino hotels, and other gambling venues. "
-            "Click a casino marker to show the home counties of its visitors (in red markers). "
-            "Marker size for counties reflects the number of visits."
+            "The blue markers represent gambling locations, inclusing casinos, casino hotels, and other gambling venues. ",
+            html.Br(),
+            "Click a casino marker to show the home counties of its visitors (in red markers). ",
+            html.Br(),
+            "Marker size for counties reflects the number of visitors."
         ),
         dcc.Graph(
             id="map",
@@ -139,7 +141,7 @@ def update_map(clickData):
     hovertext=(
         "County: " + tmp["NAME"].astype(str)
         + "<br>FIPS: " + tmp["county"].astype(str)
-        + "<br>Visits: " + tmp["visits"].astype(int).astype(str)
+        + "<br>Visitors: " + tmp["visits"].astype(int).astype(str)
     ),
     hoverinfo="text",
 )
@@ -150,7 +152,7 @@ def update_map(clickData):
         f"(raw_visit_counts={raw_visits}). "
         f"Matched county rows: {len(tmp)}. "
         f"Distinct origin counties: {tmp['county'].nunique()}, "
-        f"total visits in sample: {int(tmp['visits'].sum())}."
+        f"total visitors in sample: {int(tmp['visits'].sum())}."
     )
 
     return fig, info_text

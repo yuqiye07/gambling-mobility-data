@@ -67,13 +67,13 @@ app.layout = html.Div(
     style={"font-family": "Arial, sans-serif"},
     children=[
         html.H2("Casino Visitor Origins Map (data from January 2019)"),
-        html.P(
+        html.P([
             "The blue markers represent gambling locations, inclusing casinos, casino hotels, and other gambling venues. ",
             html.Br(),
             "Click a casino marker to show the home counties of its visitors (in red markers). ",
             html.Br(),
             "Marker size for counties reflects the number of visitors."
-        ),
+    ]),
         dcc.Graph(
             id="map",
             figure=base_fig,
